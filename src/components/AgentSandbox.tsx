@@ -25,18 +25,17 @@ import {
   MessageCircle,
   ExternalLink,
   Bot,
-  Layers,
-  Clock,
-  Code
+  FileSpreadsheet
 } from 'lucide-react';
 import { ALL_14_AGENTS } from '../data/agentsData';
-import { AgentSpec, LanguageMode } from '../types';
-import { AssemblyPipelineModal } from './AssemblyPipelineModal';
+import { AGENT_SKILLS_MAP } from '../data/agentSkills';
+import { AgentSpec, AgentSkill, LanguageMode } from '../types';
 
 interface AgentSandboxProps {
   language: LanguageMode;
   selectedAgentId?: string;
   onOpenAudit: () => void;
+  onOpenSheets: () => void;
 }
 
 const ICON_MAP: Record<string, React.ReactNode> = {
@@ -53,21 +52,22 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   CreditCard: <CreditCard className="w-6 h-6 text-purple-400" />,
   TrendingUp: <TrendingUp className="w-6 h-6 text-orange-400" />,
   BarChart3: <BarChart3 className="w-6 h-6 text-blue-400" />,
-  MessageSquare: <MessageSquare className="w-6 h-6 text-emerald-400" />,
-  Clock: <Clock className="w-6 h-6 text-sky-400" />
+  MessageSquare: <MessageSquare className="w-6 h-6 text-emerald-400" />
 };
 
 export const AgentSandbox: React.FC<AgentSandboxProps> = ({
   language,
   selectedAgentId,
   onOpenAudit,
+  onOpenSheets,
 }) => {
-  const [activePhase, setActivePhase] = useState<string>('all');
+  const [activeDepartment, setActiveDepartment] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeModalAgent, setActiveModalAgent] = useState<AgentSpec | null>(
     selectedAgentId ? ALL_14_AGENTS.find((a) => a.id === selectedAgentId) || null : null
   );
-  const [isAssemblyModalOpen, setIsAssemblyModalOpen] = useState<boolean>(false);
+  const [selectedSkill, setSelectedSkill] = useState<AgentSkill | null>(null);
+  const [skillParamValues, setSkillParamValues] = useState<Record<string, any>>({});
 
   // Playground state
   const [sandboxPrompt, setSandboxPrompt] = useState<string>('');
@@ -76,7 +76,6 @@ export const AgentSandbox: React.FC<AgentSandboxProps> = ({
   const [agentOutput, setAgentOutput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
-  const [promptCopied, setPromptCopied] = useState<boolean>(false);
 
   // Sync modal when selectedAgentId changes externally
   React.useEffect(() => {
@@ -88,17 +87,85 @@ export const AgentSandbox: React.FC<AgentSandboxProps> = ({
     }
   }, [selectedAgentId]);
 
-  const handleOpenModal = (agent: AgentSpec) => {
+  const handleOpenModal = (agent: AgentSpec, initialSkillId?: string) => {
     setActiveModalAgent(agent);
-    const defaultPrompt = agent.samplePrompts[0]?.prompt || 'Demonstrate your core capability.';
-    setSandboxPrompt(defaultPrompt);
-    // Set default sample output matching language
-    if (language === 'ur_nastaliq') {
-      setAgentOutput(agent.defaultSampleOutput.ur_nastaliq);
-    } else if (language === 'ur_roman') {
-      setAgentOutput(agent.defaultSampleOutput.ur_roman);
+    const agentSkills = AGENT_SKILLS_MAP[agent.id] || [];
+    const skillToSelect = initialSkillId
+      ? agentSkills.find((s) => s.id === initialSkillId) || agentSkills[0] || null
+      : agentSkills[0] || null;
+
+    setSelectedSkill(skillToSelect);
+
+    // Initialize parameter values
+    const initParams: Record<string, any> = {};
+    if (skillToSelect?.parameters) {
+      skillToSelect.parameters.forEach((param) => {
+        initParams[param.name] = param.defaultValue || '';
+      });
+    }
+    setSkillParamValues(initParams);
+
+    if (skillToSelect) {
+      if (language === 'ur_nastaliq') {
+        setSandboxPrompt(skillToSelect.defaultPromptUrdu || skillToSelect.defaultPrompt);
+        if (skillToSelect.sampleExecutionResult) {
+          setAgentOutput(skillToSelect.sampleExecutionResult.ur_nastaliq);
+        } else {
+          setAgentOutput(agent.defaultSampleOutput.ur_nastaliq);
+        }
+      } else if (language === 'ur_roman') {
+        setSandboxPrompt(skillToSelect.defaultPrompt);
+        if (skillToSelect.sampleExecutionResult) {
+          setAgentOutput(skillToSelect.sampleExecutionResult.ur_roman);
+        } else {
+          setAgentOutput(agent.defaultSampleOutput.ur_roman);
+        }
+      } else {
+        setSandboxPrompt(skillToSelect.defaultPrompt);
+        if (skillToSelect.sampleExecutionResult) {
+          setAgentOutput(skillToSelect.sampleExecutionResult.en);
+        } else {
+          setAgentOutput(agent.defaultSampleOutput.en);
+        }
+      }
     } else {
-      setAgentOutput(agent.defaultSampleOutput.en);
+      const defaultPrompt = agent.samplePrompts[0]?.prompt || 'Demonstrate your core capability.';
+      setSandboxPrompt(defaultPrompt);
+      if (language === 'ur_nastaliq') {
+        setAgentOutput(agent.defaultSampleOutput.ur_nastaliq);
+      } else if (language === 'ur_roman') {
+        setAgentOutput(agent.defaultSampleOutput.ur_roman);
+      } else {
+        setAgentOutput(agent.defaultSampleOutput.en);
+      }
+    }
+  };
+
+  const handleSelectSkill = (skill: AgentSkill) => {
+    setSelectedSkill(skill);
+    const initParams: Record<string, any> = {};
+    if (skill.parameters) {
+      skill.parameters.forEach((param) => {
+        initParams[param.name] = param.defaultValue || '';
+      });
+    }
+    setSkillParamValues(initParams);
+
+    if (sandboxLanguage === 'ur_nastaliq') {
+      setSandboxPrompt(skill.defaultPromptUrdu || skill.defaultPrompt);
+      if (skill.sampleExecutionResult) {
+        setAgentOutput(skill.sampleExecutionResult.ur_nastaliq);
+      }
+    } else if (sandboxLanguage === 'ur_roman') {
+      setSandboxPrompt(skill.defaultPrompt);
+      if (skill.sampleExecutionResult) {
+        setAgentOutput(skill.sampleExecutionResult.ur_roman);
+      }
+    } else {
+      setSandboxPrompt(skill.defaultPrompt);
+      if (skill.sampleExecutionResult) {
+        setAgentOutput(skill.sampleExecutionResult.en);
+      }
     }
   };
 
@@ -113,22 +180,42 @@ export const AgentSandbox: React.FC<AgentSandboxProps> = ({
         body: JSON.stringify({
           agentId: activeModalAgent.id,
           agentName: activeModalAgent.name,
+          skillId: selectedSkill?.id,
+          skillName: selectedSkill?.name,
+          skillParameters: skillParamValues,
           prompt: sandboxPrompt,
           language: sandboxLanguage,
           businessContext,
-          systemPrompt: activeModalAgent.systemPrompt
         }),
       });
 
       const data = await res.json();
       if (data.output) {
         setAgentOutput(data.output);
+      } else if (selectedSkill?.sampleExecutionResult) {
+        if (sandboxLanguage === 'ur_nastaliq') {
+          setAgentOutput(selectedSkill.sampleExecutionResult.ur_nastaliq);
+        } else if (sandboxLanguage === 'ur_roman') {
+          setAgentOutput(selectedSkill.sampleExecutionResult.ur_roman);
+        } else {
+          setAgentOutput(selectedSkill.sampleExecutionResult.en);
+        }
       } else {
         setAgentOutput(activeModalAgent.defaultSampleOutput.en);
       }
     } catch (err) {
       console.error(err);
-      setAgentOutput(activeModalAgent.defaultSampleOutput.en);
+      if (selectedSkill?.sampleExecutionResult) {
+        if (sandboxLanguage === 'ur_nastaliq') {
+          setAgentOutput(selectedSkill.sampleExecutionResult.ur_nastaliq);
+        } else if (sandboxLanguage === 'ur_roman') {
+          setAgentOutput(selectedSkill.sampleExecutionResult.ur_roman);
+        } else {
+          setAgentOutput(selectedSkill.sampleExecutionResult.en);
+        }
+      } else {
+        setAgentOutput(activeModalAgent.defaultSampleOutput.en);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -140,131 +227,112 @@ export const AgentSandbox: React.FC<AgentSandboxProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCopySystemPrompt = (promptText?: string) => {
-    if (!promptText) return;
-    navigator.clipboard.writeText(promptText);
-    setPromptCopied(true);
-    setTimeout(() => setPromptCopied(false), 2000);
-  };
-
   // Filter agents
   const filteredAgents = ALL_14_AGENTS.filter((agent) => {
-    const matchesPhase = activePhase === 'all' || agent.n8nPhase === activePhase;
+    const matchesDept = activeDepartment === 'all' || agent.department === activeDepartment;
     const matchesSearch =
       agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       agent.tagline.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (agent.systemPrompt && agent.systemPrompt.toLowerCase().includes(searchQuery.toLowerCase())) ||
       agent.nameUrdu.includes(searchQuery);
-    return matchesPhase && matchesSearch;
+    return matchesDept && matchesSearch;
   });
 
   return (
-    <section id="agents" className="py-20 md:py-28 relative border-b border-[#222222]">
+    <section id="agents" className="py-20 md:py-28 relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto mb-12 space-y-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#0A0A0A] border border-[#333333] text-[#A78BFA] text-xs font-mono tracking-widest uppercase">
-            <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />
-            <span>NexaBoost 14-Agent Assembly Line</span>
+        <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{language === 'ur_nastaliq' ? 'مکمل ۱۴ ایجنٹ سسٹم' : 'The Complete Fleet'}</span>
           </div>
           
-          <h2 className="text-3xl sm:text-5xl font-normal tracking-tight text-white font-serif">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-white font-serif">
             {language === 'ur_nastaliq' ? (
-              '۱۴ مکمل AI ایجنٹس — نِکسا بوسٹ خودکار اسمبلی لائن'
+              '۱۴ خودمختار AI ایجنٹس — آپ کی ۲۴/۷ ٹیم'
             ) : (
               <>
-                The 14 AI Agents — <span className="italic text-[#A78BFA]">Base44 & n8n Assembly Line</span>
+                The 14 AI Agents — <span className="text-purple-400">Your 24/7 Team</span>
               </>
             )}
           </h2>
           
-          <p className="text-[#A0A0A0] text-base sm:text-lg">
+          <p className="text-neutral-400 text-base sm:text-lg">
             {language === 'ur_nastaliq' ? (
-              'یہ مکمل اسمبلی لائن ہے: اوپر والا ایجنٹ نیچے والے کو ڈیٹا دیتا ہے اور ماسٹر سی آر ایم شیٹ کو اپ ڈیٹ کرتا ہے۔'
+              'ہر ایجنٹ اپنے شعبے میں ماہر ہے اور دیگر ایجنٹس کے ساتھ مل کر آپ کے بزنس کے تمام کام خودکار انداز میں سرانجام دیتا ہے۔'
             ) : (
-              'A connected 4-phase assembly line where upstream agents hand off verified data to downstream agents via the Google Sheet "NexaBoost Master CRM".'
+              'Each agent is trained on specialized domain workflows, fully integrated into your WhatsApp, CRM, and sales pipelines.'
             )}
           </p>
-
-          {/* Quick Assembly Prompts Modal Trigger Button */}
-          <div className="pt-2">
-            <button
-              onClick={() => setIsAssemblyModalOpen(true)}
-              className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-xl bg-[#A78BFA] hover:bg-[#C4B5FD] text-black font-mono text-xs uppercase font-bold tracking-wider transition-all shadow-lg shadow-[#A78BFA]/20 cursor-pointer"
-            >
-              <Layers className="w-4 h-4" />
-              <span>Copy All 14 System Prompts for n8n / Base44</span>
-            </button>
-          </div>
         </div>
 
-        {/* Phase Filter Tabs & Search */}
+        {/* Filters & Search Row */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-10">
           
-          {/* Phase Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-[#0A0A0A] border border-[#222222] rounded-xl overflow-x-auto max-w-full font-mono text-xs">
+          {/* Department Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-white/5 border border-white/10 rounded-xl overflow-x-auto max-w-full">
             <button
-              onClick={() => setActivePhase('all')}
-              className={`px-3.5 py-2 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activePhase === 'all'
-                  ? 'bg-[#A78BFA] text-black font-bold shadow-sm'
-                  : 'text-[#888888] hover:text-white'
+              onClick={() => setActiveDepartment('all')}
+              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                activeDepartment === 'all'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
-              ALL 14 AGENTS
+              {language === 'ur_nastaliq' ? 'تمام ۱۴ ایجنٹس (14)' : 'All 14 Agents'}
             </button>
             <button
-              onClick={() => setActivePhase('PHASE 1: LEAD + DATA')}
-              className={`px-3.5 py-2 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activePhase === 'PHASE 1: LEAD + DATA'
-                  ? 'bg-[#A78BFA] text-black font-bold shadow-sm'
-                  : 'text-[#888888] hover:text-white'
+              onClick={() => setActiveDepartment('sales')}
+              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                activeDepartment === 'sales'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
-              PHASE 1: LEAD + DATA (4)
+              {language === 'ur_nastaliq' ? 'سیلز و پائپ لائن (4)' : 'Sales & Pipeline (4)'}
             </button>
             <button
-              onClick={() => setActivePhase('PHASE 2: OUTREACH + SALES')}
-              className={`px-3.5 py-2 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activePhase === 'PHASE 2: OUTREACH + SALES'
-                  ? 'bg-[#A78BFA] text-black font-bold shadow-sm'
-                  : 'text-[#888888] hover:text-white'
+              onClick={() => setActiveDepartment('marketing')}
+              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                activeDepartment === 'marketing'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
-              PHASE 2: OUTREACH + SALES (4)
+              {language === 'ur_nastaliq' ? 'مارکیٹنگ و کنٹنٹ (5)' : 'Marketing & Creative (5)'}
             </button>
             <button
-              onClick={() => setActivePhase('PHASE 3: CONTENT + MARKETING')}
-              className={`px-3.5 py-2 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activePhase === 'PHASE 3: CONTENT + MARKETING'
-                  ? 'bg-[#A78BFA] text-black font-bold shadow-sm'
-                  : 'text-[#888888] hover:text-white'
+              onClick={() => setActiveDepartment('operations')}
+              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                activeDepartment === 'operations'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
-              PHASE 3: CONTENT + MARKETING (4)
+              {language === 'ur_nastaliq' ? 'کسٹمر کیئر و آپریشنز (3)' : 'Operations & Care (3)'}
             </button>
             <button
-              onClick={() => setActivePhase('PHASE 4: MANAGEMENT')}
-              className={`px-3.5 py-2 rounded-lg transition-all whitespace-nowrap cursor-pointer ${
-                activePhase === 'PHASE 4: MANAGEMENT'
-                  ? 'bg-[#A78BFA] text-black font-bold shadow-sm'
-                  : 'text-[#888888] hover:text-white'
+              onClick={() => setActiveDepartment('strategy')}
+              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                activeDepartment === 'strategy'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-neutral-400 hover:text-white'
               }`}
             >
-              PHASE 4: MANAGEMENT (2)
+              {language === 'ur_nastaliq' ? 'اسٹریٹجی و تجزیہ (2)' : 'Strategy & Intelligence (2)'}
             </button>
           </div>
 
           {/* Search box */}
           <div className="relative w-full md:w-64">
-            <Search className="w-4 h-4 text-[#888888] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-neutral-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder={language === 'ur_nastaliq' ? 'ایجنٹ یا پرامپٹ سرچ...' : 'Search 14 agents & prompts...'}
+              placeholder={language === 'ur_nastaliq' ? 'ایجنٹ تلاش کریں...' : 'Search agent...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-[#0A0A0A] border border-[#222222] rounded-xl text-xs sm:text-sm text-white placeholder-[#666666] focus:outline-none focus:border-[#A78BFA] transition-colors"
+              className="w-full pl-9 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs sm:text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 transition-colors"
             />
           </div>
 
@@ -272,106 +340,119 @@ export const AgentSandbox: React.FC<AgentSandboxProps> = ({
 
         {/* 14 Agents Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredAgents.map((agent) => (
+          {filteredAgents.map((agent, index) => (
             <div
               key={agent.id}
               id={`agent-card-${agent.id}`}
-              className="bg-[#0A0A0A] hover:bg-[#111111] border border-[#222222] hover:border-[#A78BFA]/50 rounded-xl p-6 transition-all duration-200 flex flex-col justify-between group shadow-lg"
+              className="bg-[#111116] hover:bg-[#15151C] border border-white/10 hover:border-purple-500/40 rounded-2xl p-6 transition-all duration-200 flex flex-col justify-between group shadow-lg hover:shadow-purple-950/20"
             >
               <div>
                 {/* Card Header: Icon, Badge & Department */}
                 <div className="flex items-start justify-between gap-3 mb-4">
-                  <div className="w-11 h-11 rounded-lg bg-[#141414] border border-[#222222] flex items-center justify-center group-hover:scale-105 transition-transform">
-                    {ICON_MAP[agent.iconName] || <Bot className="w-5 h-5 text-[#A78BFA]" />}
+                  <div className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    {ICON_MAP[agent.iconName] || <Bot className="w-6 h-6 text-purple-400" />}
                   </div>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded text-[10px] font-mono uppercase font-semibold bg-[#A78BFA]/10 text-[#A78BFA] border border-[#A78BFA]/20">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">
                     {agent.badge}
                   </span>
                 </div>
 
                 {/* Agent Number & Name */}
                 <div className="mb-2">
-                  <div className="text-[10px] font-mono text-[#666666] uppercase tracking-widest mb-1">
-                    #{agent.assemblyOrder || 1} • {agent.n8nPhase || agent.departmentLabel}
+                  <div className="text-[11px] font-mono text-neutral-500 uppercase tracking-wider mb-1">
+                    Agent #{index + 1} • {agent.departmentLabel}
                   </div>
-                  <h3 className="text-lg font-bold text-white group-hover:text-[#A78BFA] transition-colors font-mono">
-                    {agent.name}
+                  <h3 className="text-lg font-bold text-white group-hover:text-purple-300 transition-colors">
+                    {language === 'ur_nastaliq' ? agent.nameUrdu : agent.name}
                   </h3>
-                  <p className="text-xs text-[#999999] mt-1 line-clamp-2">
+                  <p className="text-xs text-neutral-400 mt-1 line-clamp-2">
                     {language === 'ur_nastaliq' ? agent.taglineUrdu : agent.tagline}
                   </p>
                 </div>
 
+                {/* 4 Distinct Skills Pills */}
+                <div className="mt-3.5 pt-3 border-t border-white/5 space-y-1.5">
+                  <div className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">
+                    {language === 'ur_nastaliq' ? '۴ مخصوص مہارتیں (Skills):' : '4 Specialized Skills:'}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(AGENT_SKILLS_MAP[agent.id] || []).map((skill) => (
+                      <button
+                        key={skill.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenModal(agent, skill.id);
+                        }}
+                        className="px-2 py-1 rounded-md bg-white/[0.04] hover:bg-purple-500/20 border border-white/10 hover:border-purple-500/30 text-[11px] text-neutral-300 hover:text-white transition-all text-left flex items-center gap-1 cursor-pointer"
+                        title={language === 'ur_nastaliq' ? skill.descriptionUrdu : skill.description}
+                      >
+                        <Zap className="w-2.5 h-2.5 text-purple-400 shrink-0" />
+                        <span className="line-clamp-1">{language === 'ur_nastaliq' ? skill.nameUrdu : skill.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Key Capabilities */}
-                <div className="mt-4 pt-4 border-t border-[#1a1a1a] space-y-2">
+                <div className="mt-3 pt-3 border-t border-white/5 space-y-1.5">
                   {(language === 'ur_nastaliq' ? agent.capabilitiesUrdu : agent.capabilities)
                     .slice(0, 2)
                     .map((cap, i) => (
-                      <div key={i} className="flex items-start gap-2 text-[12px] text-[#cccccc]">
-                        <Check className="w-3.5 h-3.5 text-[#A78BFA] mt-0.5 shrink-0" />
-                        <span className="line-clamp-2">{cap}</span>
+                      <div key={i} className="flex items-start gap-2 text-[11px] text-neutral-400">
+                        <Check className="w-3 h-3 text-purple-400 mt-0.5 shrink-0" />
+                        <span className="line-clamp-1">{cap}</span>
                       </div>
                     ))}
                 </div>
               </div>
 
               {/* Card Footer: Metrics & Launch Sandbox CTA */}
-              <div className="mt-6 pt-4 border-t border-[#1a1a1a] space-y-3">
-                <div className="flex items-center justify-between text-[11px] font-mono text-[#777777]">
+              <div className="mt-5 pt-4 border-t border-white/5 space-y-3">
+                <div className="flex items-center justify-between text-[11px] text-neutral-400">
                   <span>{agent.metrics[0]?.label}:</span>
-                  <span className="font-bold text-[#E0E0E0]">{agent.metrics[0]?.value}</span>
+                  <span className="font-bold text-white">{agent.metrics[0]?.value}</span>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleOpenModal(agent)}
-                    id={`test-agent-${agent.id}-btn`}
-                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg bg-[#141414] hover:bg-[#A78BFA] text-[#E0E0E0] hover:text-black border border-[#222222] hover:border-[#A78BFA] text-[11px] font-mono uppercase tracking-wider font-bold transition-all cursor-pointer"
-                  >
-                    <Play className="w-3 h-3 fill-current" />
-                    <span>Test AI</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (agent.systemPrompt) {
-                        navigator.clipboard.writeText(agent.systemPrompt);
-                        alert(`Copied prompt for ${agent.name} to clipboard!`);
-                      }
-                    }}
-                    className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg bg-[#111111] hover:bg-[#1f1f1f] text-[#A78BFA] border border-[#262626] text-[11px] font-mono uppercase tracking-wider font-bold transition-all cursor-pointer"
-                  >
-                    <Copy className="w-3 h-3" />
-                    <span>Copy Prompt</span>
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleOpenModal(agent)}
+                  id={`test-agent-${agent.id}-btn`}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-bold transition-all cursor-pointer group-hover:border-purple-400"
+                >
+                  <Play className="w-3.5 h-3.5 fill-purple-400 text-purple-400" />
+                  <span>{language === 'ur_nastaliq' ? 'مہارتیں اور لائیو ٹیسٹ' : 'Explore Skills & Test'}</span>
+                </button>
               </div>
             </div>
           ))}
         </div>
 
         {/* Bottom Banner Call to Action */}
-        <div className="mt-14 p-8 rounded-2xl bg-[#0A0A0A] border border-[#222222] flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="mt-14 p-8 rounded-3xl bg-gradient-to-r from-purple-900/30 via-indigo-900/20 to-neutral-900 border border-purple-500/30 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="space-y-2 text-center md:text-left">
-            <h3 className="text-xl sm:text-2xl font-normal text-white font-serif">
-              Ready to automate your Pakistan business pipeline in 7 Days?
+            <h3 className="text-xl sm:text-2xl font-bold text-white font-serif">
+              {language === 'ur_nastaliq'
+                ? 'کیا آپ کے پاس کوئی خاص کاروباری ضرورت ہے؟'
+                : 'Need a custom AI agent pod tailored to your exact workflows?'}
             </h3>
-            <p className="text-xs sm:text-sm text-[#888888] font-mono">
-              Complete AI Lead Gen + WhatsApp CRM Package: Rs. 50,000 / month with 1,000 verified leads and full setup.
+            <p className="text-sm text-neutral-300">
+              {language === 'ur_nastaliq'
+                ? 'ہم آپ کی پروڈکٹس اور کسٹمرز کے مطابق AI کو ۲۴ گھنٹے میں ٹرین کر کے دیتے ہیں۔'
+                : 'We connect with your CRM, Shopify catalog, and WhatsApp Business API within 48-72 hours.'}
             </p>
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <a
-              href="https://wa.me/923462231606?text=Salam%20Ali%20Mola!%20Mujhe%2014%20Agents%20Assembly%20Line%20setup%20karwana%20hai."
+              href="https://wa.me/923462231606?text=Hi%20NexaBoost%20team!%20I%20want%20to%20discuss%20a%20custom%20AI%20Agent%20deployment."
               target="_blank"
               rel="noopener noreferrer"
-              className="px-5 py-3 rounded-lg bg-[#25D366] text-black font-bold text-xs uppercase font-mono tracking-wider flex items-center gap-2"
+              className="px-5 py-3 rounded-xl bg-[#25D366] text-black font-bold text-xs sm:text-sm flex items-center gap-2"
             >
               <MessageCircle className="w-4 h-4" />
-              <span>WhatsApp Ali Mola (+92 346 2231606)</span>
+              <span>Talk to Systems Architect</span>
             </a>
             <button
               onClick={onOpenAudit}
-              className="px-5 py-3 rounded-lg bg-[#A78BFA] hover:bg-[#C4B5FD] text-black font-bold text-xs uppercase font-mono tracking-wider flex items-center gap-2 cursor-pointer"
+              className="px-5 py-3 rounded-xl bg-purple-500 hover:bg-purple-400 text-black font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
               <span>Get Free AI Audit</span>
@@ -381,199 +462,286 @@ export const AgentSandbox: React.FC<AgentSandboxProps> = ({
 
       </div>
 
-      {/* Interactive Sandbox Playground Modal */}
+      {/* Interactive Sandbox Playground Modal / Drawer */}
       {activeModalAgent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto">
-          <div className="bg-[#0A0A0A] border border-[#222222] rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-md overflow-y-auto">
+          <div className="bg-[#0F0F14] border border-purple-500/30 rounded-3xl w-full max-w-5xl overflow-hidden shadow-2xl relative my-auto animate-in fade-in zoom-in-95 duration-200">
             
             {/* Modal Header */}
-            <div className="p-6 border-b border-[#222222] flex items-center justify-between bg-[#050505]">
+            <div className="p-6 border-b border-white/10 flex items-center justify-between bg-white/[0.02]">
               <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-lg bg-[#141414] border border-[#222222] flex items-center justify-center">
-                  {ICON_MAP[activeModalAgent.iconName] || <Bot className="w-5 h-5 text-[#A78BFA]" />}
+                <div className="w-11 h-11 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center">
+                  {ICON_MAP[activeModalAgent.iconName] || <Bot className="w-6 h-6 text-purple-400" />}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-normal text-white font-mono">
+                    <h3 className="text-xl font-bold text-white font-serif">
                       {activeModalAgent.name}
                     </h3>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold bg-[#A78BFA]/10 text-[#A78BFA] border border-[#A78BFA]/20">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
                       {activeModalAgent.badge}
                     </span>
                   </div>
-                  <p className="text-xs font-mono text-[#888888] mt-0.5">
-                    {activeModalAgent.n8nPhase} • Node #{activeModalAgent.assemblyOrder}
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    {activeModalAgent.title} • {activeModalAgent.departmentLabel}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleCopySystemPrompt(activeModalAgent.systemPrompt)}
-                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#141414] hover:bg-[#A78BFA] text-[#CCCCCC] hover:text-black border border-[#222222] text-xs font-mono transition-colors cursor-pointer"
-                >
-                  {promptCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{promptCopied ? 'Copied Prompt!' : 'Copy Base44/n8n Prompt'}</span>
-                </button>
-                <button
-                  onClick={() => setActiveModalAgent(null)}
-                  className="p-2 rounded-lg bg-[#141414] hover:bg-[#222222] text-[#888888] hover:text-white transition-colors cursor-pointer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+              <button
+                onClick={() => setActiveModalAgent(null)}
+                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-neutral-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-h-[75vh] overflow-y-auto">
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 max-h-[80vh] overflow-y-auto">
               
-              {/* Left Column: Controls & Prompt Input (5 cols) */}
+              {/* Left Column: Skills Selector, Parameters & Prompt (5 cols) */}
               <div className="lg:col-span-5 space-y-4">
                 
-                {/* Official System Prompt Box */}
-                {activeModalAgent.systemPrompt && (
-                  <div className="p-3 bg-[#060606] border border-[#1F1F1F] rounded-lg space-y-1.5">
-                    <div className="flex items-center justify-between text-[10px] font-mono text-[#888888] uppercase">
-                      <span>Exact Base44 / n8n System Prompt:</span>
-                      <button
-                        onClick={() => handleCopySystemPrompt(activeModalAgent.systemPrompt)}
-                        className="text-[#A78BFA] hover:underline cursor-pointer flex items-center gap-1"
-                      >
-                        <Copy className="w-3 h-3" />
-                        <span>Copy</span>
-                      </button>
+                {/* 1. Skills Matrix Selector */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-xs font-semibold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Zap className="w-3.5 h-3.5 text-purple-400" />
+                      <span>{sandboxLanguage === 'ur_nastaliq' ? 'ایجنٹ کی مخصوص مہارت منتخب کریں:' : 'Select Agent Skill:'}</span>
+                    </label>
+                    <span className="text-[10px] text-neutral-400">4 Skills Available</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    {(AGENT_SKILLS_MAP[activeModalAgent.id] || []).map((skill) => {
+                      const isSelected = selectedSkill?.id === skill.id;
+                      return (
+                        <button
+                          key={skill.id}
+                          onClick={() => handleSelectSkill(skill)}
+                          className={`w-full text-left p-2.5 rounded-xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? 'bg-purple-600/20 border-purple-500 text-white shadow-md shadow-purple-950/40'
+                              : 'bg-white/5 hover:bg-white/10 border-white/10 text-neutral-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-semibold text-xs text-white">
+                              {sandboxLanguage === 'ur_nastaliq' ? skill.nameUrdu : skill.name}
+                            </div>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-mono shrink-0">
+                              {skill.badge}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-neutral-400 mt-1 line-clamp-2">
+                            {sandboxLanguage === 'ur_nastaliq' ? skill.descriptionUrdu : skill.description}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Interactive Skill Parameters (if any) */}
+                {selectedSkill && selectedSkill.parameters && selectedSkill.parameters.length > 0 && (
+                  <div className="p-3 bg-white/[0.03] border border-white/10 rounded-xl space-y-2.5">
+                    <label className="text-[11px] font-semibold text-neutral-300 flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-3 h-3 text-purple-400" />
+                      <span>{sandboxLanguage === 'ur_nastaliq' ? 'مہارت کے متغیرات (Parameters):' : 'Skill Parameters:'}</span>
+                    </label>
+                    <div className="grid grid-cols-1 gap-2">
+                      {selectedSkill.parameters.map((param) => (
+                        <div key={param.name}>
+                          <span className="block text-[10px] text-neutral-400 mb-1">
+                            {sandboxLanguage === 'ur_nastaliq' ? param.labelUrdu : param.label}
+                          </span>
+                          {param.type === 'select' ? (
+                            <select
+                              value={skillParamValues[param.name] || ''}
+                              onChange={(e) =>
+                                setSkillParamValues((prev) => ({
+                                  ...prev,
+                                  [param.name]: e.target.value,
+                                }))
+                              }
+                              className="w-full p-2 bg-black/50 border border-white/15 rounded-lg text-xs text-white focus:border-purple-500"
+                            >
+                              {(param.options || []).map((opt) => (
+                                <option key={opt.value} value={opt.value} className="bg-[#111116] text-white">
+                                  {opt.label}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type={param.type === 'number' ? 'number' : 'text'}
+                              value={skillParamValues[param.name] || ''}
+                              onChange={(e) =>
+                                setSkillParamValues((prev) => ({
+                                  ...prev,
+                                  [param.name]: e.target.value,
+                                }))
+                              }
+                              placeholder={param.placeholder || ''}
+                              className="w-full p-2 bg-black/50 border border-white/15 rounded-lg text-xs text-white placeholder-neutral-500 focus:border-purple-500"
+                            />
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    <pre className="text-[11px] font-mono text-emerald-300 leading-snug overflow-x-auto whitespace-pre-wrap max-h-28 overflow-y-auto">
-                      {activeModalAgent.systemPrompt}
-                    </pre>
                   </div>
                 )}
 
-                {/* Language Output Selector */}
+                {/* 3. Language Output Selector */}
                 <div>
-                  <label className="block text-xs font-mono text-[#888888] mb-1.5 uppercase tracking-wider">
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
                     Target Output Language:
                   </label>
-                  <div className="grid grid-cols-3 gap-1 bg-[#111111] p-1 rounded-lg border border-[#222222] text-xs font-mono">
+                  <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
                     <button
                       onClick={() => setSandboxLanguage('en')}
-                      className={`py-1.5 rounded transition-all ${
+                      className={`py-1.5 rounded-lg font-medium transition-all ${
                         sandboxLanguage === 'en'
-                          ? 'bg-[#A78BFA] text-black font-bold'
-                          : 'text-[#888888] hover:text-white'
+                          ? 'bg-purple-600 text-white font-semibold'
+                          : 'text-neutral-400 hover:text-white'
                       }`}
                     >
                       English
                     </button>
                     <button
                       onClick={() => setSandboxLanguage('ur_nastaliq')}
-                      className={`py-1.5 rounded transition-all ${
+                      className={`py-1.5 rounded-lg font-medium transition-all ${
                         sandboxLanguage === 'ur_nastaliq'
-                          ? 'bg-[#A78BFA] text-black font-bold'
-                          : 'text-[#888888] hover:text-white'
+                          ? 'bg-purple-600 text-white font-semibold'
+                          : 'text-neutral-400 hover:text-white'
                       }`}
                     >
-                      اردو
+                      اردو (Nastaliq)
                     </button>
                     <button
                       onClick={() => setSandboxLanguage('ur_roman')}
-                      className={`py-1.5 rounded transition-all ${
+                      className={`py-1.5 rounded-lg font-medium transition-all ${
                         sandboxLanguage === 'ur_roman'
-                          ? 'bg-[#A78BFA] text-black font-bold'
-                          : 'text-[#888888] hover:text-white'
+                          ? 'bg-purple-600 text-white font-semibold'
+                          : 'text-neutral-400 hover:text-white'
                       }`}
                     >
-                      Roman
+                      Roman Urdu
                     </button>
                   </div>
                 </div>
 
-                {/* Instant Prompt Presets */}
-                <div>
-                  <label className="block text-xs font-mono text-[#888888] mb-1.5 uppercase tracking-wider">
-                    One-Click Task Templates:
-                  </label>
-                  <div className="space-y-1.5">
-                    {activeModalAgent.samplePrompts.map((preset, i) => (
-                      <button
-                        key={i}
-                        onClick={() => {
-                          if (sandboxLanguage === 'ur_nastaliq') {
-                            setSandboxPrompt(preset.promptUrdu);
-                          } else {
-                            setSandboxPrompt(preset.prompt);
-                          }
-                        }}
-                        className="w-full text-left p-2.5 rounded-lg bg-[#111111] hover:bg-[#181818] border border-[#222222] text-xs text-[#CCCCCC] transition-colors flex items-center justify-between group cursor-pointer"
-                      >
-                        <span className="font-medium group-hover:text-[#A78BFA] line-clamp-1">
-                          {sandboxLanguage === 'ur_nastaliq' ? preset.titleUrdu : preset.title}
-                        </span>
-                        <ArrowRight className="w-3.5 h-3.5 text-[#666666] group-hover:text-[#A78BFA] shrink-0" />
-                      </button>
-                    ))}
+                {/* 4. Quick Template Presets for this Skill */}
+                {selectedSkill && selectedSkill.quickTemplates && selectedSkill.quickTemplates.length > 0 && (
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                      {sandboxLanguage === 'ur_nastaliq' ? 'فوری ٹیمپلیٹس:' : 'Skill Quick Templates:'}
+                    </label>
+                    <div className="space-y-1.5">
+                      {selectedSkill.quickTemplates.map((preset, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            if (sandboxLanguage === 'ur_nastaliq') {
+                              setSandboxPrompt(preset.promptUrdu || preset.prompt);
+                            } else {
+                              setSandboxPrompt(preset.prompt);
+                            }
+                          }}
+                          className="w-full text-left p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-neutral-300 transition-colors flex items-center justify-between group cursor-pointer"
+                        >
+                          <span className="font-medium group-hover:text-purple-300 line-clamp-1">
+                            {sandboxLanguage === 'ur_nastaliq' ? preset.titleUrdu : preset.title}
+                          </span>
+                          <ArrowRight className="w-3.5 h-3.5 text-neutral-500 group-hover:text-purple-400 shrink-0" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Custom Prompt Textarea */}
+                {/* 5. Custom Prompt Textarea */}
                 <div>
-                  <label className="block text-xs font-mono text-[#888888] mb-1.5 uppercase tracking-wider">
-                    Agent Instruction / Test Task:
+                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5">
+                    {sandboxLanguage === 'ur_nastaliq' ? 'ایجنٹ کی ہدایات / ٹاسک:' : 'Execution Task / Prompt:'}
                   </label>
                   <textarea
                     rows={3}
                     value={sandboxPrompt}
                     onChange={(e) => setSandboxPrompt(e.target.value)}
-                    placeholder="Enter what you want this agent to execute..."
-                    className="w-full p-3 bg-[#050505] border border-[#222222] rounded-lg text-xs text-white placeholder-[#555555] focus:outline-none focus:border-[#A78BFA] transition-colors resize-none font-sans"
+                    placeholder={selectedSkill?.inputPlaceholder || "Enter what you want this agent skill to execute..."}
+                    className="w-full p-3 bg-black/40 border border-white/15 rounded-xl text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-purple-500 transition-colors resize-none"
                   />
                 </div>
 
-                {/* Run Button */}
+                {/* 6. Run Button */}
                 <button
                   onClick={handleRunAgent}
                   disabled={isLoading || !sandboxPrompt.trim()}
-                  className="w-full py-3 px-4 rounded-lg bg-[#A78BFA] hover:bg-[#C4B5FD] disabled:opacity-50 text-black font-bold text-xs uppercase font-mono tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#A78BFA]/20 transition-all cursor-pointer"
+                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 disabled:opacity-50 text-black font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20 transition-all cursor-pointer"
                 >
                   {isLoading ? (
                     <>
                       <RotateCcw className="w-4 h-4 animate-spin text-black" />
-                      <span>Executing Inference...</span>
+                      <span>Executing {selectedSkill?.name || activeModalAgent.name}...</span>
                     </>
                   ) : (
                     <>
                       <Zap className="w-4 h-4 text-black" />
-                      <span>Run Live Agent Inference</span>
+                      <span>Execute Skill: {selectedSkill ? (sandboxLanguage === 'ur_nastaliq' ? selectedSkill.nameUrdu : selectedSkill.name) : activeModalAgent.name}</span>
                     </>
                   )}
                 </button>
 
+                {/* Direct WhatsApp Deployment link */}
+                <a
+                  href={`https://wa.me/923462231606?text=${encodeURIComponent(
+                    `Hi NexaBoost team! I tested the "${activeModalAgent.name}" skill "${selectedSkill?.name || 'All Skills'}" in your sandbox and want to deploy it for my business.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-[#25D366]/15 hover:bg-[#25D366]/25 border border-[#25D366]/30 text-[#25D366] font-semibold text-xs flex items-center justify-center gap-2 transition-all"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span>Deploy {activeModalAgent.name} on WhatsApp</span>
+                </a>
+
               </div>
 
               {/* Right Column: Live Output Display (7 cols) */}
-              <div className="lg:col-span-7 flex flex-col bg-[#050505] border border-[#222222] rounded-xl overflow-hidden">
+              <div className="lg:col-span-7 flex flex-col bg-black/50 border border-white/10 rounded-2xl overflow-hidden">
                 
                 {/* Output Top Bar */}
-                <div className="p-3 bg-[#0A0A0A] border-b border-[#222222] flex items-center justify-between">
+                <div className="p-3.5 bg-white/5 border-b border-white/10 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-[#25D366]"></span>
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
                     </span>
-                    <span className="text-xs font-mono uppercase tracking-wider text-[#A0A0A0]">
-                      Live Output Stream (Target: Google Sheet "NexaBoost Master CRM")
+                    <span className="text-xs font-semibold text-neutral-300">
+                      Live Output Stream
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <button
+                      id="export-sandbox-to-sheets-btn"
+                      onClick={onOpenSheets}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-[11px] text-emerald-300 hover:text-emerald-200 transition-colors cursor-pointer"
+                      title="Sync deliverable to connected Google Spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Sync to Google Sheets</span>
+                    </button>
+
+                    <button
                       onClick={handleCopy}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-[#141414] hover:bg-[#222222] text-[11px] font-mono text-[#888888] hover:text-white transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[11px] text-neutral-300 hover:text-white transition-colors cursor-pointer"
                     >
                       {copied ? (
                         <>
-                          <Check className="w-3.5 h-3.5 text-[#25D366]" />
-                          <span className="text-[#25D366]">Copied!</span>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400">Copied!</span>
                         </>
                       ) : (
                         <>
@@ -586,14 +754,14 @@ export const AgentSandbox: React.FC<AgentSandboxProps> = ({
                 </div>
 
                 {/* Output Content Area */}
-                <div className="p-4 sm:p-5 flex-1 min-h-[280px] overflow-y-auto text-xs sm:text-sm text-[#D0D0D0] font-sans leading-relaxed whitespace-pre-wrap">
+                <div className="p-4 sm:p-5 flex-1 min-h-[280px] overflow-y-auto text-xs sm:text-sm text-neutral-200 font-sans leading-relaxed whitespace-pre-wrap">
                   {agentOutput}
                 </div>
 
                 {/* Output Footer Note */}
-                <div className="p-3 bg-[#0A0A0A] border-t border-[#222222] text-[10px] font-mono text-[#666666] flex items-center justify-between">
-                  <span>MODEL: GEMINI-3.7-FLASH</span>
-                  <span>ASSEMBLY NODE #{activeModalAgent.assemblyOrder} OF 14</span>
+                <div className="p-3 bg-white/[0.02] border-t border-white/5 text-[11px] text-neutral-500 flex items-center justify-between">
+                  <span>Model: gemini-3.7-flash (Server-Side)</span>
+                  <span>Latency: ~1.2s • 100% Autonomous</span>
                 </div>
 
               </div>
@@ -603,13 +771,6 @@ export const AgentSandbox: React.FC<AgentSandboxProps> = ({
           </div>
         </div>
       )}
-
-      {/* Assembly Pipeline Modal */}
-      <AssemblyPipelineModal
-        language={language}
-        isOpen={isAssemblyModalOpen}
-        onClose={() => setIsAssemblyModalOpen(false)}
-      />
 
     </section>
   );

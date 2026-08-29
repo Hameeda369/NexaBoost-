@@ -2,6 +2,38 @@ export type LanguageMode = 'en' | 'ur_nastaliq' | 'ur_roman';
 
 export type AgentDepartment = 'sales' | 'marketing' | 'operations' | 'strategy';
 
+export interface AgentSkill {
+  id: string;
+  name: string;
+  nameUrdu: string;
+  badge?: string;
+  description: string;
+  descriptionUrdu: string;
+  iconName: string;
+  inputPlaceholder: string;
+  defaultPrompt: string;
+  defaultPromptUrdu: string;
+  parameters?: {
+    name: string;
+    label: string;
+    labelUrdu: string;
+    type: 'text' | 'select' | 'number';
+    defaultValue: string;
+    options?: { label: string; value: string }[];
+  }[];
+  quickTemplates: {
+    title: string;
+    titleUrdu: string;
+    prompt: string;
+    promptUrdu: string;
+  }[];
+  sampleExecutionResult: {
+    en: string;
+    ur_nastaliq: string;
+    ur_roman: string;
+  };
+}
+
 export interface AgentSpec {
   id: string;
   name: string;
@@ -16,9 +48,7 @@ export interface AgentSpec {
   descriptionUrdu: string;
   capabilities: string[];
   capabilitiesUrdu: string[];
-  systemPrompt?: string;
-  n8nPhase?: string;
-  assemblyOrder?: number;
+  skills?: AgentSkill[];
   metrics: {
     label: string;
     value: string;
@@ -95,44 +125,4 @@ export interface CaseStudy {
     author: string;
     role: string;
   };
-}
-
-export type LeadStatus = 'New' | 'Contacted' | 'In Progress' | 'Converted' | 'Lost';
-
-export interface DashboardLead {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  service?: string;
-  source: string;
-  status: LeadStatus;
-  notes?: string;
-  budget?: string;
-  createdAt: string;
-  lastContactedAt?: string;
-  whatsappSent?: boolean;
-  whatsappStatus?: 'Sent' | 'Pending' | 'Failed' | 'Simulated';
-}
-
-export interface WhatsAppConfig {
-  enabled: boolean;
-  appId?: string;
-  metaSettingsUrl?: string;
-  phoneNumberId: string;
-  accessToken: string;
-  businessAccountId: string;
-  webhookUrl: string;
-  verifyToken: string;
-  autoMessageTemplate: string;
-  senderName: string;
-  testPhone?: string;
-}
-
-export interface DashboardStats {
-  totalLeads: number;
-  newToday: number;
-  contacted: number;
-  converted: number;
-  conversionRate: number;
 }

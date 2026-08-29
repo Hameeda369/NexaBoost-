@@ -68,28 +68,28 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({ language, onOp
   ];
 
   return (
-    <section className="py-20 md:py-28 relative border-t border-[#222222] bg-[#050505]">
+    <section className="py-20 md:py-28 relative border-t border-white/5">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto mb-14 space-y-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#0A0A0A] border border-[#222222] text-[#A78BFA] text-xs font-mono uppercase tracking-widest">
-            <Sparkles className="w-3.5 h-3.5 text-[#A78BFA]" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold">
+            <Sparkles className="w-3.5 h-3.5" />
             <span>{language === 'ur_nastaliq' ? 'سچی حقیقت و موازنہ' : 'The Value Equation'}</span>
           </div>
 
-          <h2 className="text-3xl sm:text-5xl font-normal tracking-tight text-white font-serif">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight text-white font-serif">
             {language === 'ur_nastaliq' ? (
               '۱۴ AI ایجنٹس بمقابلہ روایتی انسانی ٹیم'
             ) : (
               <>
                 NexaBoost 14 AI Hub vs.{' '}
-                <span className="italic text-[#A78BFA]">Traditional Agency</span>
+                <span className="text-purple-400">Traditional Agency</span>
               </>
             )}
           </h2>
 
-          <p className="text-[#A0A0A0] text-base sm:text-lg">
+          <p className="text-neutral-400 text-base sm:text-lg">
             {language === 'ur_nastaliq' ? (
               'موازنہ کیجیے کہ کیوں تیز رفتار برانڈز روایتی طریقوں کے بجائے NexaBoost کے خودمختار سسٹم پر منتقل ہو رہے ہیں۔'
             ) : (
@@ -100,50 +100,50 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({ language, onOp
 
         {/* Comparison Table */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[700px] bg-[#0A0A0A] border border-[#222222] rounded-2xl overflow-hidden shadow-2xl">
+          <table className="w-full text-left border-collapse min-w-[700px] bg-[#111116] border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
             <thead>
-              <tr className="border-b border-[#222222] bg-[#0E0E0E]">
-                <th className="p-5 sm:p-6 text-xs font-mono font-bold text-[#888888] uppercase tracking-wider">
+              <tr className="border-b border-white/10 bg-white/[0.02]">
+                <th className="p-5 sm:p-6 text-sm font-bold text-neutral-400 uppercase tracking-wider">
                   Operational Factor
                 </th>
-                <th className="p-5 sm:p-6 text-xs font-mono font-bold text-[#A78BFA] uppercase tracking-wider bg-[#141020] border-x border-[#222222]">
+                <th className="p-5 sm:p-6 text-sm font-bold text-purple-400 uppercase tracking-wider bg-purple-500/10 border-x border-purple-500/20">
                   <div className="flex items-center gap-2">
-                    <Zap className="w-3.5 h-3.5 text-[#A78BFA]" />
+                    <Zap className="w-4 h-4 text-purple-400" />
                     <span>NexaBoost 14 AI Hub</span>
                   </div>
                 </th>
-                <th className="p-5 sm:p-6 text-xs font-mono font-bold text-[#888888] uppercase tracking-wider">
+                <th className="p-5 sm:p-6 text-sm font-bold text-neutral-400 uppercase tracking-wider">
                   14-Person Human Team
                 </th>
-                <th className="p-5 sm:p-6 text-xs font-mono font-bold text-[#666666] uppercase tracking-wider">
+                <th className="p-5 sm:p-6 text-sm font-bold text-neutral-500 uppercase tracking-wider">
                   Single DIY AI Bot
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#222222] text-xs sm:text-sm">
+            <tbody className="divide-y divide-white/5 text-xs sm:text-sm">
               {comparisonData.map((row, idx) => (
                 <tr
                   key={idx}
-                  className={`hover:bg-[#111111] transition-colors ${
-                    row.highlight ? 'bg-[#0E0E0E]' : ''
+                  className={`hover:bg-white/[0.02] transition-colors ${
+                    row.highlight ? 'bg-purple-950/10' : ''
                   }`}
                 >
-                  <td className="p-5 sm:p-6 font-medium text-white">
+                  <td className="p-5 sm:p-6 font-semibold text-white">
                     {language === 'ur_nastaliq' ? row.featureUrdu : row.feature}
                   </td>
-                  <td className="p-5 sm:p-6 font-semibold text-[#E0E0E0] bg-[#141020]/60 border-x border-[#222222]">
+                  <td className="p-5 sm:p-6 font-bold text-purple-300 bg-purple-500/10 border-x border-purple-500/20">
                     <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-[#A78BFA] shrink-0" />
+                      <Check className="w-4 h-4 text-purple-400 shrink-0" />
                       <span>{row.nexa}</span>
                     </div>
                   </td>
-                  <td className="p-5 sm:p-6 text-[#888888]">
+                  <td className="p-5 sm:p-6 text-neutral-400">
                     <div className="flex items-center gap-2">
                       <X className="w-4 h-4 text-rose-500/70 shrink-0" />
                       <span>{row.human}</span>
                     </div>
                   </td>
-                  <td className="p-5 sm:p-6 text-[#666666]">
+                  <td className="p-5 sm:p-6 text-neutral-500">
                     <div className="flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-amber-500/60 shrink-0" />
                       <span>{row.genericAi}</span>
@@ -159,7 +159,7 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({ language, onOp
         <div className="mt-10 text-center">
           <button
             onClick={onOpenAudit}
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-lg bg-[#A78BFA] hover:bg-[#C4B5FD] text-black font-mono uppercase tracking-wider font-bold text-xs sm:text-sm shadow-lg shadow-[#A78BFA]/20 transition-all cursor-pointer"
+            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-purple-400 hover:bg-purple-300 text-black font-bold text-sm sm:text-base shadow-lg shadow-purple-500/20 transition-all cursor-pointer"
           >
             <Sparkles className="w-4 h-4 text-black" />
             <span>

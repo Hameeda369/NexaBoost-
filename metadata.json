@@ -1,6 +1,6 @@
 {
   "name": "NexaBoost AI Creative Hub",
-  "description": "Enterprise 14 Multilingual AI Agents Hub delivering 24/7 lead generation, outreach, closing, content, and autonomous business workflows with human-grade trust.",
+  "description": "Enterprise 14 Multilingual AI Agents Hub with 14 1-page PDF proposals, Canva copy kit, and Google Sheets workspace sync delivering 24/7 lead generation, outreach, and autonomous business workflows.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
