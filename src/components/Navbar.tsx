@@ -91,6 +91,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>{language === 'ur_nastaliq' ? '۴ ڈی اینیمیشن' : '4D Engine'}</span>
             </a>
 
+            {/* 3 Dedicated Core Agents Link */}
+            <a
+              id="nav-three-agents-link"
+              href="#three-agents-hub"
+              className="hover:text-emerald-300 transition-colors flex items-center gap-1.5 cursor-pointer text-emerald-300 font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 shadow-sm"
+              title="3 Dedicated Core AI Agents System"
+            >
+              <Bot className="w-4 h-4 text-emerald-400" />
+              <span>{language === 'ur_nastaliq' ? '۳ کور ایجنٹس' : '3 Core Agents'}</span>
+            </a>
+
             {/* Dashboard / Live Sandbox Button */}
             <button
               id="nav-dashboard-btn"
@@ -278,6 +289,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>4D AI Hyperspace & Quantum Engine</span>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[10px] uppercase font-bold">4D</span>
+            </a>
+
+            {/* 3 Core Agents in Mobile Menu */}
+            <a
+              id="mobile-nav-three-agents-link"
+              href="#three-agents-hub"
+              onClick={() => setMobileMenuOpen(false)}
+              className="px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-semibold flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Bot className="w-4 h-4 text-emerald-400" />
+                <span>3 Dedicated Core Agents (Strict Sales)</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] uppercase font-bold">3 Agents</span>
             </a>
 
             {/* Dashboard button in mobile menu */}

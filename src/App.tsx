@@ -14,6 +14,7 @@ import { Footer } from './components/Footer';
 import { GoogleSheetsHub } from './components/GoogleSheetsHub';
 import { ProposalPdfsHub } from './components/ProposalPdfsHub';
 import { FourDExperienceSection } from './components/FourDExperienceSection';
+import { ThreeDedicatedAgentsHub } from './components/ThreeDedicatedAgentsHub';
 import { LanguageMode } from './types';
 
 export default function App() {
@@ -74,6 +75,12 @@ export default function App() {
         <FourDExperienceSection
           language={language}
           onOpenSandbox={handleOpenSandbox}
+          onOpenAudit={handleOpenAudit}
+        />
+
+        {/* 3 Dedicated Core AI Agents System (Strict Point-to-Point Sales) */}
+        <ThreeDedicatedAgentsHub
+          language={language}
           onOpenAudit={handleOpenAudit}
         />
 
